@@ -1,6 +1,10 @@
 # For my testing only
 
 mysql:
-  image: klevo/percona
+  build: .
   ports:
     - "3306:3306"
+  environment:
+    MYSQL_ROOT_PASSWORD: "test"
+    AWS_ACCESS_KEY: ""
+    AWS_SECRET_KEY: ""

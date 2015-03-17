@@ -1,0 +1,1 @@
+00 00 * * * root duply onsitebackup backup --allow-source-mismatch >> /var/log/cron.log 2>&1
