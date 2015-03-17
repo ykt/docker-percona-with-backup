@@ -1,6 +1,6 @@
 # docker-percona-with-backup
 
-> Using https://github.com/klevo/docker-percona/ as base image, this will add backup mechanism.
+> Using https://github.com/klevo/docker-percona/ as base image, this will add `innobackupex` backup mechanism.
 
 
 ## Getting Started
@@ -21,7 +21,9 @@ Refer to `docker-compose.yml` for example.
 
 ## Backup Behaviour
 
-    TODO
+- `innobackupex` is scheduled to run every 2 hours.
+- When it is running, it will perform either full or incremental backup into local filesystem.
+- Then, it will sync the folder to specified S3 bucket.
 
 ## Restore Process (Must be done within the container)
 
