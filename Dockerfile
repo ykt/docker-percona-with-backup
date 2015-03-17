@@ -12,5 +12,14 @@ COPY config/s3cfg.config /root/.s3cfg
 
 ADD scripts/ /usr/local/bin/
 
+ENV INNOBACKUPEX innobackupex
+ENV INNOBACKUPEXFULL /usr/bin/innobackupex
+
+ENV BACKUPDIR /backup/mysql
+ENV INNOBACKUPEX_MEMORY 1024M
+
+RUN mkdir -p $BACKUPDIR
+
+
 
 CMD ["/usr/bin/supervisord"]

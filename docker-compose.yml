@@ -8,3 +8,4 @@ mysql:
     MYSQL_ROOT_PASSWORD: "test"
     AWS_ACCESS_KEY: ""
     AWS_SECRET_KEY: ""
+    S3_BUCKET: "s3://a-sample-bucket/some/database/backuppath/"

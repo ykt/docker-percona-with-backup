@@ -5,7 +5,16 @@
 
 ## Getting Started
 
-### System Environment
+### Mandatory Docker System Environment
 
-- `AWS_ACCESS_KEY`
-- `AWS_SECRET_KEY`
+Refer to `docker-compose.yml` for example.
+
+- `AWS_ACCESS_KEY`: AWS Access Key to be used when uploading backups to S3 bucket
+- `AWS_SECRET_KEY`: AWS Secret Key to be used when uploading backups to S3 bucket
+- `MYSQL_ROOT_PASSWORD`: Root password for MySQL
+- `S3BUCKET`: Location of the S3 backup. For eg: `s3://a-sample-bucket/some/database/backuppath/`
+
+### Optional Docker System Environment
+
+- `INNOBACKUPEX_MEMORY`: Amount of memory allocated for restoring process. Defaulted to `1024M`.
+- `BACKUPDIR`: Location of the backup in the container. Defaulted to `/backup/mysql`.
