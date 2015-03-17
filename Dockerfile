@@ -20,6 +20,4 @@ ENV INNOBACKUPEX_MEMORY 1024M
 
 RUN mkdir -p $BACKUPDIR
 
-
-
 CMD ["/usr/bin/supervisord"]
