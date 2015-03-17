@@ -1,0 +1,6 @@
+# For my testing only
+
+mysql:
+  image: klevo/percona
+  ports:
+    - "3306:3306"
