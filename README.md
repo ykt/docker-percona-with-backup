@@ -18,3 +18,20 @@ Refer to `docker-compose.yml` for example.
 
 - `INNOBACKUPEX_MEMORY`: Amount of memory allocated for restoring process. Defaulted to `1024M`.
 - `BACKUPDIR`: Location of the backup in the container. Defaulted to `/backup/mysql`.
+
+## Backup Behaviour
+
+    TODO
+
+## Restore Process (Must be done within the container)
+
+- If the Docker container is totally destroyed, copy from S3 backup path `S3BUCKET` into `BACKUPDIR` directory in the container.
+
+    s3cmd cp $S3BUCKET $BACKUPDIR
+
+- `rm -rf /var/lib/mysql/*`
+
+- Run `innobackupex-restore`, specifying the first parameter from the targetted backup. This can be either full or incremental backup.
+
+    innobackupex-restore $BACKUPDIR/full/2015-03-17_07-59-45/
+    innobackupex-restore $BACKUPDIR/incr/2015-03-17_07-59-45/2015-03-17_06-43-18/

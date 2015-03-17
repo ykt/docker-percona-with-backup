@@ -40,89 +40,109 @@ error()
   exit 1
 }
  
-# Check options before proceeding
-if [ ! -x $INNOBACKUPEXFULL ]; then
-  error "$INNOBACKUPEXFULL does not exist."
-fi
- 
-if [ ! -d $BACKUPDIR ]; then
-  error "Backup destination folder: $BACKUPDIR does not exist."
-fi
- 
-if [ -z "`$MYSQLADMIN $USEROPTIONS status | grep 'Uptime'`" ] ; then
- error "HALTED: MySQL does not appear to be running."
-fi
- 
-if ! `echo 'exit' | $MYSQL -s $USEROPTIONS` ; then
- error "HALTED: Supplied mysql username or password appears to be incorrect (not copied here for security, see script)."
-fi
- 
-# Some info output
-echo "----------------------------"
-echo
-echo "$0: MySQL backup script"
-echo "started: `date`"
-echo "Backup Started on `date`" >> $LOGFILE
-echo
- 
-# Create full and incr backup directories if they not exist.
-mkdir -p $FULLBACKUPDIR
-mkdir -p $INCRBACKUPDIR
- 
-# Find latest full backup
-LATEST_FULL=`find $FULLBACKUPDIR -mindepth 1 -maxdepth 1 -type d -printf "%P\n" | sort -nr | head -1`
- 
-# Get latest backup last modification time
-LATEST_FULL_CREATED_AT=`stat -c %Y $FULLBACKUPDIR/$LATEST_FULL`
- 
-# Run an incremental backup if latest full is still valid. Otherwise, run a new full one.
-if [ "$LATEST_FULL" -a `expr $LATEST_FULL_CREATED_AT + $FULLBACKUPLIFE + 5` -ge $STARTED_AT ] ; then
-  # Create incremental backups dir if not exists.
-  TMPINCRDIR=$INCRBACKUPDIR/$LATEST_FULL
-  mkdir -p $TMPINCRDIR
-  
-  # Find latest incremental backup.
-  LATEST_INCR=`find $TMPINCRDIR -mindepth 1 -maxdepth 1 -type d | sort -nr | head -1`
-  
-  # If this is the first incremental, use the full as base. Otherwise, use the latest incremental as base.
-  if [ ! $LATEST_INCR ] ; then
-    INCRBASEDIR=$FULLBACKUPDIR/$LATEST_FULL
-  else
-    INCRBASEDIR=$LATEST_INCR
+validate()
+{
+  # Check options before proceeding
+  if [ ! -x $INNOBACKUPEXFULL ]; then
+    error "$INNOBACKUPEXFULL does not exist."
   fi
-  
-  echo "Running new incremental backup using $INCRBASEDIR as base."
-  echo "Running new incremental backup using $INCRBASEDIR as base." >> $LOGFILE
-  $INNOBACKUPEXFULL --defaults-file=$MYCNF $USEROPTIONS --incremental $TMPINCRDIR --incremental-basedir $INCRBASEDIR > $TMPFILE 2>&1
-else
-  echo "Running new full backup."
-  echo "Running new full backup for $now" >> $LOGFILE
-  $INNOBACKUPEXFULL --defaults-file=$MYCNF $USEROPTIONS $FULLBACKUPDIR > $TMPFILE 2>&1
-fi
+   
+  if [ ! -d $BACKUPDIR ]; then
+    error "Backup destination folder: $BACKUPDIR does not exist."
+  fi
+   
+  if [ -z "`$MYSQLADMIN $USEROPTIONS status | grep 'Uptime'`" ] ; then
+   error "HALTED: MySQL does not appear to be running."
+  fi
+   
+  if ! `echo 'exit' | $MYSQL -s $USEROPTIONS` ; then
+   error "HALTED: Supplied mysql username or password appears to be incorrect (not copied here for security, see script)."
+  fi
+}
  
-if [ -z "`tail -1 $TMPFILE | grep 'completed OK!'`" ] ; then
- echo "$INNOBACKUPEX failed:"; echo
- echo "---------- ERROR OUTPUT from $INNOBACKUPEX ----------"
- cat $TMPFILE
- rm -f $TMPFILE
- exit 1
-fi
+configure_s3cfg() {
+  egrep -q "^(access_key|secret_key)" /root/.s3cfg
+  if [ $? -ne 0 ] ; then
+    echo "Configuring AWS Credentials from system environments"
+    echo "access_key = $AWS_ACCESS_KEY" >> /root/.s3cfg
+    echo "secret_key = $AWS_SECRET_KEY" >> /root/.s3cfg
+  fi
+}
+
+perform_innobackupex() { 
+
+  # Some info output
+  echo "----------------------------"
+  echo
+  echo "$0: MySQL backup script"
+  echo "started: `date`"
+  echo "Backup Started on `date`" >> $LOGFILE
+  echo
+
+  # Create full and incr backup directories if they not exist.
+  mkdir -p $FULLBACKUPDIR
+  mkdir -p $INCRBACKUPDIR
+   
+  # Find latest full backup
+  LATEST_FULL=`find $FULLBACKUPDIR -mindepth 1 -maxdepth 1 -type d -printf "%P\n" | sort -nr | head -1`
+   
+  # Get latest backup last modification time
+  LATEST_FULL_CREATED_AT=`stat -c %Y $FULLBACKUPDIR/$LATEST_FULL`
+   
+  # Run an incremental backup if latest full is still valid. Otherwise, run a new full one.
+  if [ "$LATEST_FULL" -a `expr $LATEST_FULL_CREATED_AT + $FULLBACKUPLIFE + 5` -ge $STARTED_AT ] ; then
+    # Create incremental backups dir if not exists.
+    TMPINCRDIR=$INCRBACKUPDIR/$LATEST_FULL
+    mkdir -p $TMPINCRDIR
+    
+    # Find latest incremental backup.
+    LATEST_INCR=`find $TMPINCRDIR -mindepth 1 -maxdepth 1 -type d | sort -nr | head -1`
+    
+    # If this is the first incremental, use the full as base. Otherwise, use the latest incremental as base.
+    if [ ! $LATEST_INCR ] ; then
+      INCRBASEDIR=$FULLBACKUPDIR/$LATEST_FULL
+    else
+      INCRBASEDIR=$LATEST_INCR
+    fi
+    
+    echo "Running new incremental backup using $INCRBASEDIR as base."
+    echo "Running new incremental backup using $INCRBASEDIR as base." >> $LOGFILE
+    $INNOBACKUPEXFULL --defaults-file=$MYCNF $USEROPTIONS --incremental $TMPINCRDIR --incremental-basedir $INCRBASEDIR > $TMPFILE 2>&1
+  else
+    echo "Running new full backup."
+    echo "Running new full backup for $now" >> $LOGFILE
+    $INNOBACKUPEXFULL --defaults-file=$MYCNF $USEROPTIONS $FULLBACKUPDIR > $TMPFILE 2>&1
+  fi
+   
+  if [ -z "`tail -1 $TMPFILE | grep 'completed OK!'`" ] ; then
+   echo "$INNOBACKUPEX failed:"; echo
+   echo "---------- ERROR OUTPUT from $INNOBACKUPEX ----------"
+   cat $TMPFILE
+   rm -f $TMPFILE
+   exit 1
+  fi
+   
+  THISBACKUP=`awk -- "/Backup created in directory/ { split( \\\$0, p, \"'\" ) ; print p[2] }" $TMPFILE`
+  rm -f $TMPFILE
+   
+  echo "Databases backed up successfully to: $THISBACKUP"
+  echo
+}
  
-THISBACKUP=`awk -- "/Backup created in directory/ { split( \\\$0, p, \"'\" ) ; print p[2] }" $TMPFILE`
-rm -f $TMPFILE
- 
-echo "Databases backed up successfully to: $THISBACKUP"
-echo
- 
-# Cleanup
-echo "Cleanup. Keeping only $KEEP full backups and its incrementals."
-AGE=$(($FULLBACKUPLIFE * $KEEP / 60))
-find $FULLBACKUPDIR -maxdepth 1 -type d -mmin +$AGE -execdir echo "removing: "$FULLBACKUPDIR/{} \; -execdir rm -rf $FULLBACKUPDIR/{} \; -execdir echo "removing: "$INCRBACKUPDIR/{} \; -execdir rm -rf $INCRBACKUPDIR/{} \;
- 
-echo "Syncing $now to S3 bucket: $S3BUCKET"
-s3cmd sync -r $BACKUPDIR $S3BUCKET
-echo "Completed Backup at `date`, synced to $S3BUCKET" >> $LOGFILE
- 
+cleanup() {
+  echo "Cleanup. Keeping only $KEEP full backups and its incrementals."
+  AGE=$(($FULLBACKUPLIFE * $KEEP / 60))
+  find $FULLBACKUPDIR -maxdepth 1 -type d -mmin +$AGE -execdir echo "removing: "$FULLBACKUPDIR/{} \; -execdir rm -rf $FULLBACKUPDIR/{} \; -execdir echo "removing: "$INCRBACKUPDIR/{} \; -execdir rm -rf $INCRBACKUPDIR/{} \;
+}
+
+sync_s3() {
+  echo "Syncing $now to S3 bucket: $S3BUCKET"
+  s3cmd sync -r $BACKUPDIR $S3BUCKET
+  echo "Completed Backup at `date`, synced to $S3BUCKET" >> $LOGFILE
+}
+
+validate && configure_s3cfg && perform_innobackupex && cleanup && sync_s3
+
 echo
 echo "completed: `date`"
 exit 0

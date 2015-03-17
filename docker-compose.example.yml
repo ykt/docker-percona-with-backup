@@ -1,5 +1,3 @@
-# For my testing only
-
 mysql:
   build: .
   ports:

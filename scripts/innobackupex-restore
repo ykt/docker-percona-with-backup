@@ -35,82 +35,103 @@ check_innobackupex_error()
   fi
 }
 
-# Check options before proceeding
-if [ ! -x $INNOBACKUPEXFULL ]; then
-  error "$INNOBACKUPEXFULL does not exist."
-fi
 
-if [ ! -d $BACKUPDIR ]; then
-  error "Backup destination folder: $BACKUPDIR does not exist."
-fi
+validate() {
+  # Check options before proceeding
+  if [ ! -x $INNOBACKUPEXFULL ]; then
+    error "$INNOBACKUPEXFULL does not exist."
+  fi
 
-if [ $# != 1 ] ; then
-  error "Usage: $0 /absolute/path/to/backup/to/restore"
-fi
+  if [ ! -d $BACKUPDIR ]; then
+    error "Backup destination folder: $BACKUPDIR does not exist."
+  fi
 
-if [ ! -d $1 ]; then
-  error "Backup to restore: $1 does not exist."
-fi
+  if [ $# != 1 ] ; then
+    error "Usage: $0 /absolute/path/to/backup/to/restore"
+  fi
 
-# Some info output
-echo "----------------------------"
-echo
-echo "$0: MySQL backup script"
-echo "started: `date`"
-echo
+  if [ ! -d $1 ]; then
+    error "Backup to restore: $1 does not exist."
+  fi
+}
 
-PARENT_DIR=`dirname $1`
+configure_s3cfg() {
+  egrep -q "^(access_key|secret_key)" /root/.s3cfg
+  if [ $? -ne 0 ] ; then
+    echo "access_key = $AWS_ACCESS_KEY" >> /root/.s3cfg
+    echo "secret_key = $AWS_SECRET_KEY" >> /root/.s3cfg
+  fi
+}
 
-if [ $PARENT_DIR = $FULLBACKUPDIR ]; then
-  FULLBACKUP=$1
-  
-  echo "Restore `basename $FULLBACKUP`"
+process_incremental_backups() {
+  # Some info output
+  echo "----------------------------"
   echo
-else
-  if [ `dirname $PARENT_DIR` = $INCRBACKUPDIR ]; then
-    INCR=`basename $1`
-    FULL=`basename $PARENT_DIR`
-    FULLBACKUP=$FULLBACKUPDIR/$FULL
+  echo "$0: MySQL backup script"
+  echo "started: `date`"
+  echo
+
+  PARENT_DIR=`dirname $1`
+
+  if [ $PARENT_DIR = $FULLBACKUPDIR ]; then
+    FULLBACKUP=$1
     
-    if [ ! -d $FULLBACKUP ]; then
-      error "Full backup: $FULLBACKUP does not exist."
-    fi
-    
-    echo "Restore $FULL up to incremental $INCR"
+    echo "Restore `basename $FULLBACKUP`"
     echo
-    
-    echo "Replay committed transactions on full backup"
-    $INNOBACKUPEXFULL --defaults-file=$MYCNF --apply-log --redo-only --use-memory=$MEMORY $FULLBACKUP > $TMPFILE 2>&1
-    check_innobackupex_error
-    
-    # Apply incrementals to base backup
-    for i in `find $PARENT_DIR -mindepth 1 -maxdepth 1 -type d -printf "%P\n" | sort -n`; do
-      echo "Applying $i to full ..."
-      $INNOBACKUPEXFULL --defaults-file=$MYCNF --apply-log --redo-only --use-memory=$MEMORY $FULLBACKUP --incremental-dir=$PARENT_DIR/$i > $TMPFILE 2>&1
+  else
+    if [ `dirname $PARENT_DIR` = $INCRBACKUPDIR ]; then
+      INCR=`basename $1`
+      FULL=`basename $PARENT_DIR`
+      FULLBACKUP=$FULLBACKUPDIR/$FULL
+      
+      if [ ! -d $FULLBACKUP ]; then
+        error "Full backup: $FULLBACKUP does not exist."
+      fi
+      
+      echo "Restore $FULL up to incremental $INCR"
+      echo
+      
+      echo "Replay committed transactions on full backup"
+      $INNOBACKUPEXFULL --defaults-file=$MYCNF --apply-log --redo-only --use-memory=$MEMORY $FULLBACKUP > $TMPFILE 2>&1
       check_innobackupex_error
       
-      if [ $INCR = $i ]; then
-        break # break. we are restoring up to this incremental.
-      fi
-    done
-  else
-    error "unknown backup type"
+      # Apply incrementals to base backup
+      for i in `find $PARENT_DIR -mindepth 1 -maxdepth 1 -type d -printf "%P\n" | sort -n`; do
+        echo "Applying $i to full ..."
+        $INNOBACKUPEXFULL --defaults-file=$MYCNF --apply-log --redo-only --use-memory=$MEMORY $FULLBACKUP --incremental-dir=$PARENT_DIR/$i > $TMPFILE 2>&1
+        check_innobackupex_error
+        
+        if [ $INCR = $i ]; then
+          break # break. we are restoring up to this incremental.
+        fi
+      done
+    else
+      error "unknown backup type"
+    fi
   fi
-fi
+}
 
-echo "Preparing ..."
-$INNOBACKUPEXFULL --defaults-file=$MYCNF --apply-log --use-memory=$MEMORY $FULLBACKUP > $TMPFILE 2>&1
-check_innobackupex_error
+prepare_backup() {
+  echo "Preparing ..."
+  $INNOBACKUPEXFULL --defaults-file=$MYCNF --apply-log --use-memory=$MEMORY $FULLBACKUP > $TMPFILE 2>&1
+  check_innobackupex_error
+}
 
-echo
-echo "Restoring ..."
-$INNOBACKUPEXFULL --defaults-file=$MYCNF --copy-back $FULLBACKUP > $TMPFILE 2>&1
-check_innobackupex_error
+restore_backup() {
+  echo
+  echo "Restoring ..."
+  $INNOBACKUPEXFULL --defaults-file=$MYCNF --copy-back $FULLBACKUP > $TMPFILE 2>&1
+  check_innobackupex_error
+}
 
-rm -f $TMPFILE
-echo "Backup restored successfully. You are able to start mysql now."
-echo "Verify files ownership in mysql data dir."
-echo "Run 'chown -R mysql:mysql /path/to/data/dir' if necessary."
-echo
-echo "completed: `date`"
-exit 0
+cleanup() {
+  rm -f $TMPFILE
+  echo "Backup restored successfully. You are able to start mysql now."
+  echo "Verify files ownership in mysql data dir."
+  echo "Run 'chown -R mysql:mysql /path/to/data/dir' if necessary."
+  echo
+  echo "completed: `date`"
+  exit 0
+}
+
+validate && configure_s3cfg && process_incremental_backups && prepare_backup && restore_backup && cleanup
