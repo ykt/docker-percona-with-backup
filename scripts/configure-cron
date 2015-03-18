@@ -1,0 +1,8 @@
+#!/bin/sh
+
+echo SHELL=/bin/bash > /etc/crontab
+echo PATH=$PATH >> /etc/crontab
+cat /etc/crontab.schedule >> /etc/crontab
+echo  >> /etc/crontab
+
+exec /usr/sbin/cron -f
