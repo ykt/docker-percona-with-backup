@@ -1,0 +1,1 @@
+00 */2 * * * root /usr/local/bin/innobackupex-runner >> /var/log/cron.log 2>&1
