@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ ! -x $BACKUP_DISABLED ]; then
+  echo "Database backup is disabled."
+  exit 1
+fi
+
 echo SHELL=/bin/bash > /etc/crontab
 echo PATH=$PATH >> /etc/crontab
 cat /etc/crontab.schedule >> /etc/crontab
