@@ -9,6 +9,7 @@ RUN wget -O- -q http://s3tools.org/repo/deb-all/stable/s3tools.key | apt-key add
 
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY config/s3cfg.config /root/.s3cfg
+COPY config/crontab /etc/crontab.schedule
 
 ADD scripts/ /usr/local/bin/
 

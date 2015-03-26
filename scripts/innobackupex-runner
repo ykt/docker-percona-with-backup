@@ -136,9 +136,9 @@ cleanup() {
 }
 
 sync_s3() {
-  echo "Syncing $now to S3 bucket: $S3BUCKET"
-  s3cmd sync -r $BACKUPDIR $S3BUCKET
-  echo "Completed Backup at `date`, synced to $S3BUCKET" >> $LOGFILE
+  echo "Syncing $now to S3 bucket: $S3_BUCKET"
+  s3cmd sync -r $BACKUPDIR $S3_BUCKET
+  echo "Completed Backup at `date`, synced to $S3_BUCKET" >> $LOGFILE
 }
 
 validate && configure_s3cfg && perform_innobackupex && cleanup && sync_s3

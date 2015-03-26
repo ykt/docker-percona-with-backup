@@ -12,7 +12,7 @@ Refer to `docker-compose.yml` for example.
 - `AWS_ACCESS_KEY`: AWS Access Key to be used when uploading backups to S3 bucket
 - `AWS_SECRET_KEY`: AWS Secret Key to be used when uploading backups to S3 bucket
 - `MYSQL_ROOT_PASSWORD`: Root password for MySQL
-- `S3BUCKET`: Location of the S3 backup. For eg: `s3://a-sample-bucket/some/database/backuppath/`
+- `S3_BUCKET`: Location of the S3 backup. For eg: `s3://a-sample-bucket/some/database/backuppath/`
 
 ### Optional Docker System Environment
 
@@ -27,9 +27,9 @@ Refer to `docker-compose.yml` for example.
 
 ## Restore Process (Must be done within the container)
 
-- If the Docker container is totally destroyed, copy from S3 backup path `S3BUCKET` into `BACKUPDIR` directory in the container.
+- If the Docker container is totally destroyed, copy from S3 backup path `S3_BUCKET` into `BACKUPDIR` directory in the container.
 
-    s3cmd cp $S3BUCKET $BACKUPDIR
+    s3cmd cp $S3_BUCKET $BACKUPDIR
 
 - `rm -rf /var/lib/mysql/*`
 
