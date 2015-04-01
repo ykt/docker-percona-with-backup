@@ -8,9 +8,15 @@ if [ ! -x $BACKUP_DISABLED ]; then
 fi
 
 
-echo SHELL=/bin/bash > $CRONTAB_FILE
-echo PATH=$PATH >> $CRONTAB_FILE
-cat /etc/crontab.schedule >> $CRONTAB_FILE
-echo  >> $CRONTAB_FILE
+
+cat <<EOF > $CRONTAB_FILE
+SHELL=/bin/bash
+PATH=$PATH
+MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
+AWS_ACCESS_KEY=$AWS_ACCESS_KEY
+AWS_SECRET_KEY=$AWS_SECRET_KEY
+EOF
+
+cat /etc/crontab.schedule  >> $CRONTAB_FILE
 
 exec /usr/sbin/cron -f

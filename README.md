@@ -9,10 +9,11 @@
 
 Refer to `docker-compose.yml` for example.
 
-- `AWS_ACCESS_KEY`: AWS Access Key to be used when uploading backups to S3 bucket
-- `AWS_SECRET_KEY`: AWS Secret Key to be used when uploading backups to S3 bucket
-- `MYSQL_ROOT_PASSWORD`: Root password for MySQL
-- `S3_BUCKET`: Location of the S3 backup. For eg: `s3://a-sample-bucket/some/database/backuppath/`
+- `AWS_ACCESS_KEY`: AWS Access Key to be used when uploading backups to S3 bucket.
+- `AWS_SECRET_KEY`: AWS Secret Key to be used when uploading backups to S3 bucket.
+- `MYSQL_ROOT_PASSWORD`: Root password for MySQL.
+- `S3_BUCKET`: Location of the S3 backup. For eg: `s3://a-sample-bucket/some/database/backuppath/`.
+- `BACKUP_DISABLED`: Set this to skip the backup. 
 
 ### Optional Docker System Environment
 
